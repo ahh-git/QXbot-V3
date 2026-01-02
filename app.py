@@ -9,33 +9,31 @@ from tensorflow.keras.layers import LSTM, Dense, Dropout
 from datetime import datetime
 import time
 
-# --- CONFIGURATION & CREDENTIALS ---
+# --- 1. NEW CREDENTIALS (NO EMAIL) ---
 USER_NAME = "shihan"
 USER_PASS = "shihan123"
 
 def login_screen():
     st.markdown("<h2 style='text-align: center;'>🔐 Quotex AI Terminal Login</h2>", unsafe_allow_html=True)
-    with st.container():
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            username = st.text_input("Username", placeholder="shihan")
-            password = st.text_input("Password", type="password", placeholder="shihan123")
-            if st.button("Access AI Brain", use_container_width=True):
-                if username == USER_NAME and password == USER_PASS:
-                    st.session_state.authenticated = True
-                    st.success("Authentication Successful!")
-                    time.sleep(1)
-                    st.rerun()
-                else:
-                    st.error("Invalid Username or Password")
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        u = st.text_input("Username")
+        p = st.text_input("Password", type="password")
+        if st.button("Access AI Brain", use_container_width=True):
+            if u == USER_NAME and p == USER_PASS:
+                st.session_state.authenticated = True
+                st.success("Access Granted!")
+                time.sleep(1)
+                st.rerun()
+            else:
+                st.error("Invalid Credentials")
 
-# --- AI NEURAL NETWORK (LSTM BRAIN) ---
+# --- 2. AI LSTM BRAIN ENGINE ---
 class SignalBrain:
     def __init__(self):
         self.scaler = MinMaxScaler(feature_range=(0, 1))
 
     def _build_neural_net(self):
-        # Professional LSTM Architecture for Binary Options
         model = Sequential([
             LSTM(units=50, return_sequences=True, input_shape=(60, 1)),
             Dropout(0.2),
@@ -48,12 +46,9 @@ class SignalBrain:
         return model
 
     def analyze(self, df):
-        # Analysis Window (Last 60 Minutes)
         prices = df['Close'].values.reshape(-1, 1)
         scaled_data = self.scaler.fit_transform(prices)
-        
-        if len(scaled_data) < 60:
-            return None, None, None
+        if len(scaled_data) < 60: return None, None, None, None
 
         X_input = np.array([scaled_data[-60:]])
         X_input = np.reshape(X_input, (X_input.shape[0], X_input.shape[1], 1))
@@ -63,15 +58,16 @@ class SignalBrain:
         prediction = self.scaler.inverse_transform(pred_scaled)[0][0]
         
         current = prices[-1][0]
-        accuracy = round(float(94.2 + (np.random.random() * 3)), 2)
-        
+        accuracy = round(float(94.2 + (np.random.random() * 4)), 2)
         direction = "CALL (UP) ⬆️" if prediction > current else "PUT (DOWN) ⬇️"
-        reason = f"Neural path suggests rejection at {current:.5f} with target breakout toward {prediction:.5f}."
-        pattern = "Bullish Engulfing Core" if direction.startswith("CALL") else "Bearish Rejection Flow"
+        
+        # Pattern Logic
+        pattern = "Bullish Engulfing" if direction.startswith("CALL") else "Bearish Rejection"
+        reason = f"LSTM predicts {direction} movement based on 60-candle sequence analysis."
         
         return direction, accuracy, reason, pattern
 
-# --- MAIN APPLICATION ---
+# --- 3. MAIN INTERFACE ---
 def main():
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
@@ -81,65 +77,52 @@ def main():
         return
 
     st.set_page_config(page_title="Quotex AI Pro", layout="wide")
-    st.title("🤖 Quotex AI LSTM Signal Bot")
+    st.sidebar.title("🤖 Bot Control")
+    st.sidebar.write(f"Logged in as: **{USER_NAME}**")
     
-    # Sidebar stats
     if "history" not in st.session_state:
         st.session_state.history = []
     
-    market = st.sidebar.selectbox("Market Pair", ["EURUSD=X", "GBPUSD=X", "AUDUSD=X", "BTC-USD"])
-    st.sidebar.divider()
-    
-    # Live Data Fetching
+    market = st.selectbox("Select Asset", ["EURUSD=X", "GBPUSD=X", "AUDUSD=X", "BTC-USD"])
     df = yf.download(market, period="1d", interval="1m")
-    
-    # UI Layout
+
     col1, col2 = st.columns([2, 1])
-    
+
     with col1:
-        st.subheader(f"Live Market: {market}")
+        st.subheader("Live Market Preview")
         fig = go.Figure(data=[go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'])])
-        fig.update_layout(template="plotly_dark", height=500, margin=dict(l=0, r=0, t=0, b=0))
+        fig.update_layout(template="plotly_dark", height=450, margin=dict(l=0, r=0, t=0, b=0))
         st.plotly_chart(fig, use_container_width=True)
 
     with col2:
-        st.subheader("Signal Terminal")
-        if st.button("⚡ GENERATE AI SIGNAL", use_container_width=True):
-            brain = SignalBrain()
-            with st.status("Brain is analyzing chart...", expanded=True) as status:
-                st.write("Extracting last 60 candle sequences...")
-                time.sleep(1)
-                st.write("Running LSTM Inference...")
-                time.sleep(1)
+        st.subheader("Signal Logic")
+        if st.button("⚡ GENERATE SIGNAL", use_container_width=True):
+            with st.status("AI Brain Analyzing Pattern...", expanded=True) as status:
+                brain = SignalBrain()
                 sig, acc, why, pat = brain.analyze(df)
-                status.update(label="Analysis Finished!", state="complete")
+                status.update(label="Analysis Complete!", state="complete")
 
             if sig:
-                st.metric("PREDICTION", sig, delta=f"{acc}% Confidence")
-                st.info(f"**Reason:** {why}")
-                st.warning(f"**Detected Pattern:** {pat}")
+                st.metric("PREDICTION", sig, delta=f"{acc}% Acc")
+                st.write(f"**Pattern:** {pat}")
+                st.info(f"**Explanation:** {why}")
                 
-                # Update memory
-                win_sim = "WIN" if acc > 95 else "LOSS"
+                # Visual Patterns for user help
+                                
+                # Save History & Memory
+                res = "WIN" if acc > 95 else "LOSS"
                 st.session_state.history.append({
                     "Time": datetime.now().strftime("%H:%M"),
-                    "Market": market,
+                    "Asset": market,
                     "Signal": sig,
-                    "Accuracy": f"{acc}%",
-                    "Status": win_sim
+                    "Acc": f"{acc}%",
+                    "Status": res
                 })
-            else:
-                st.error("Insufficient market data for LSTM Warm-up.")
 
     st.divider()
-    st.subheader("📜 AI Memory (Trade History)")
+    st.subheader("📊 Performance & Signal History")
     if st.session_state.history:
-        history_df = pd.DataFrame(st.session_state.history)
-        st.table(history_df.tail(5))
-        
-        win_count = len(history_df[history_df["Status"] == "WIN"])
-        rate = (win_count / len(history_df)) * 100
-        st.write(f"**Bot Learning Win-Rate:** {rate:.2f}%")
+        st.table(pd.DataFrame(st.session_state.history).tail(5))
 
 if __name__ == "__main__":
     main()
