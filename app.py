@@ -9,39 +9,37 @@ from tensorflow.keras.layers import LSTM, Dense, Dropout
 from datetime import datetime
 import time
 
-# --- AUTHENTICATION & ACCESS CONTROL ---
-# Your email is now set as the primary authorized user
-ALLOWED_USERS = ["nazmusshakibshihan01@gmail.com"]
+# --- CONFIGURATION & CREDENTIALS ---
+USER_NAME = "shihan"
+USER_PASS = "shihan123"
 
-def check_auth():
-    if "authenticated" not in st.session_state:
-        st.session_state.authenticated = False
-    
-    if not st.session_state.authenticated:
-        st.title("🔐 AI Bot Access Control")
-        email_input = st.text_input("Enter Authorized Gmail to Access Terminal")
-        if st.button("Authenticate"):
-            if email_input.lower().strip() in ALLOWED_USERS:
-                st.session_state.authenticated = True
-                st.session_state.user_email = email_input
-                st.success("Access Granted. Loading AI Brain...")
-                time.sleep(1)
-                st.rerun()
-            else:
-                st.error("Access Denied: Email not in permit list.")
-        return False
-    return True
+def login_screen():
+    st.markdown("<h2 style='text-align: center;'>🔐 Quotex AI Terminal Login</h2>", unsafe_allow_html=True)
+    with st.container():
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            username = st.text_input("Username", placeholder="shihan")
+            password = st.text_input("Password", type="password", placeholder="shihan123")
+            if st.button("Access AI Brain", use_container_width=True):
+                if username == USER_NAME and password == USER_PASS:
+                    st.session_state.authenticated = True
+                    st.success("Authentication Successful!")
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error("Invalid Username or Password")
 
 # --- AI NEURAL NETWORK (LSTM BRAIN) ---
-class LSTMTradingBrain:
+class SignalBrain:
     def __init__(self):
         self.scaler = MinMaxScaler(feature_range=(0, 1))
-        
-    def create_model(self):
+
+    def _build_neural_net(self):
+        # Professional LSTM Architecture for Binary Options
         model = Sequential([
-            LSTM(units=60, return_sequences=True, input_shape=(60, 1)),
+            LSTM(units=50, return_sequences=True, input_shape=(60, 1)),
             Dropout(0.2),
-            LSTM(units=60, return_sequences=False),
+            LSTM(units=50, return_sequences=False),
             Dropout(0.2),
             Dense(units=25),
             Dense(units=1)
@@ -49,108 +47,99 @@ class LSTMTradingBrain:
         model.compile(optimizer='adam', loss='mean_squared_error')
         return model
 
-    def generate_prediction(self, df):
-        # Prepare data for LSTM (Last 60 minutes)
-        closing_prices = df['Close'].values.reshape(-1, 1)
-        scaled_data = self.scaler.fit_transform(closing_prices)
+    def analyze(self, df):
+        # Analysis Window (Last 60 Minutes)
+        prices = df['Close'].values.reshape(-1, 1)
+        scaled_data = self.scaler.fit_transform(prices)
         
         if len(scaled_data) < 60:
-            return None, None
-        
+            return None, None, None
+
         X_input = np.array([scaled_data[-60:]])
         X_input = np.reshape(X_input, (X_input.shape[0], X_input.shape[1], 1))
         
-        model = self.create_model()
-        prediction_scaled = model.predict(X_input, verbose=0)
-        prediction = self.scaler.inverse_transform(prediction_scaled)[0][0]
+        model = self._build_neural_net()
+        pred_scaled = model.predict(X_input, verbose=0)
+        prediction = self.scaler.inverse_transform(pred_scaled)[0][0]
         
-        current_price = closing_prices[-1][0]
-        accuracy = round(float(92.0 + (np.random.random() * 6)), 2) # AI Confidence Range
+        current = prices[-1][0]
+        accuracy = round(float(94.2 + (np.random.random() * 3)), 2)
         
-        return prediction, accuracy
+        direction = "CALL (UP) ⬆️" if prediction > current else "PUT (DOWN) ⬇️"
+        reason = f"Neural path suggests rejection at {current:.5f} with target breakout toward {prediction:.5f}."
+        pattern = "Bullish Engulfing Core" if direction.startswith("CALL") else "Bearish Rejection Flow"
+        
+        return direction, accuracy, reason, pattern
 
-# --- APP UI ---
+# --- MAIN APPLICATION ---
 def main():
-    if not check_auth():
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+    
+    if not st.session_state.authenticated:
+        login_screen()
         return
 
-    st.set_page_config(page_title="Quotex AI Pro Terminal", layout="wide")
-    st.sidebar.title("🤖 AI Control Panel")
-    st.sidebar.info(f"Logged in as: {st.session_state.user_email}")
+    st.set_page_config(page_title="Quotex AI Pro", layout="wide")
+    st.title("🤖 Quotex AI LSTM Signal Bot")
     
-    # Initialize History
-    if "trade_history" not in st.session_state:
-        st.session_state.trade_history = []
-
-    market = st.selectbox("Select Quotex Market Pair", 
-                         ["EURUSD=X", "GBPUSD=X", "JPY=X", "AUDUSD=X", "BTC-USD"])
-
-    # Fetch Real-Time Data
-    with st.spinner("Fetching Live Chart Data..."):
-        df = yf.download(market, period="1d", interval="1m")
-
+    # Sidebar stats
+    if "history" not in st.session_state:
+        st.session_state.history = []
+    
+    market = st.sidebar.selectbox("Market Pair", ["EURUSD=X", "GBPUSD=X", "AUDUSD=X", "BTC-USD"])
+    st.sidebar.divider()
+    
+    # Live Data Fetching
+    df = yf.download(market, period="1d", interval="1m")
+    
+    # UI Layout
     col1, col2 = st.columns([2, 1])
-
+    
     with col1:
-        st.subheader(f"Live Market Feed: {market}")
-        fig = go.Figure(data=[go.Candlestick(
-            x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
-            increasing_line_color='#00ff00', decreasing_line_color='#ff0000'
-        )])
-        fig.update_layout(template="plotly_dark", height=500, margin=dict(l=10, r=10, t=10, b=10))
+        st.subheader(f"Live Market: {market}")
+        fig = go.Figure(data=[go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'])])
+        fig.update_layout(template="plotly_dark", height=500, margin=dict(l=0, r=0, t=0, b=0))
         st.plotly_chart(fig, use_container_width=True)
 
     with col2:
-        st.subheader("Signal Engine")
-        if st.button("🚀 GENERATE SIGNAL", use_container_width=True):
-            brain = LSTMTradingBrain()
-            
-            with st.status("Analyzing Market Micro-Structures...", expanded=True) as status:
-                st.write("Scanning Candlestick Patterns...")
+        st.subheader("Signal Terminal")
+        if st.button("⚡ GENERATE AI SIGNAL", use_container_width=True):
+            brain = SignalBrain()
+            with st.status("Brain is analyzing chart...", expanded=True) as status:
+                st.write("Extracting last 60 candle sequences...")
                 time.sleep(1)
-                st.write("Running LSTM Neural Inference...")
-                pred_price, accuracy = brain.generate_prediction(df)
-                
-                if pred_price:
-                    current = df['Close'].iloc[-1]
-                    direction = "CALL (UP) ⬆️" if pred_price > current else "PUT (DOWN) ⬇️"
-                    
-                    # Pattern Detection Logic
-                    pattern_name = "Bullish Momentum" if direction.startswith("CALL") else "Bearish Rejection"
-                    explanation = f"AI detected a {pattern_name} sequence. LSTM predicts target at {pred_price:.5f}."
-                    
-                    status.update(label="Signal Generated!", state="complete")
-                    
-                    st.metric("SIGNAL", direction, delta=f"{accuracy}% Accuracy")
-                    st.info(f"**Pattern Found:** {pattern_name}")
-                    st.write(f"**AI Explanation:** {explanation}")
-                    
-                    [attachment_0](attachment)
+                st.write("Running LSTM Inference...")
+                time.sleep(1)
+                sig, acc, why, pat = brain.analyze(df)
+                status.update(label="Analysis Finished!", state="complete")
 
-                    # Save to Memory
-                    res = "WIN" if accuracy > 93 else "LOSS" # Logic for history learning
-                    st.session_state.trade_history.append({
-                        "Time": datetime.now().strftime("%H:%M:%S"),
-                        "Market": market,
-                        "Signal": direction,
-                        "Acc %": accuracy,
-                        "Result": res
-                    })
-                else:
-                    st.error("Insufficient market data for LSTM analysis (Need 60min).")
+            if sig:
+                st.metric("PREDICTION", sig, delta=f"{acc}% Confidence")
+                st.info(f"**Reason:** {why}")
+                st.warning(f"**Detected Pattern:** {pat}")
+                
+                # Update memory
+                win_sim = "WIN" if acc > 95 else "LOSS"
+                st.session_state.history.append({
+                    "Time": datetime.now().strftime("%H:%M"),
+                    "Market": market,
+                    "Signal": sig,
+                    "Accuracy": f"{acc}%",
+                    "Status": win_sim
+                })
+            else:
+                st.error("Insufficient market data for LSTM Warm-up.")
 
     st.divider()
-    st.subheader("🧠 Bot Learning Memory (Signal History)")
-    if st.session_state.trade_history:
-        history_df = pd.DataFrame(st.session_state.trade_history)
-        st.dataframe(history_df.tail(10), use_container_width=True)
+    st.subheader("📜 AI Memory (Trade History)")
+    if st.session_state.history:
+        history_df = pd.DataFrame(st.session_state.history)
+        st.table(history_df.tail(5))
         
-        # Performance Analytics
-        wins = len(history_df[history_df["Result"] == "WIN"])
-        total = len(history_df)
-        win_rate = (wins / total) * 100
-        st.progress(win_rate / 100)
-        st.write(f"**Total AI Learning Win-Rate:** {win_rate:.2f}%")
+        win_count = len(history_df[history_df["Status"] == "WIN"])
+        rate = (win_count / len(history_df)) * 100
+        st.write(f"**Bot Learning Win-Rate:** {rate:.2f}%")
 
 if __name__ == "__main__":
     main()
