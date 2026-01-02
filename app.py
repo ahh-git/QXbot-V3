@@ -10,7 +10,7 @@ from datetime import datetime
 import time
 
 # --- AUTHENTICATION ---
-ALLOWED_USERS = ["nazmusshakibshihan01@gmail.com", "trader@gmail.com"]
+ALLOWED_USERS = ["nazmusshakibshihan01@gmail.com"]
 
 def check_auth():
     if "authenticated" not in st.session_state:
